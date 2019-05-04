@@ -1,4 +1,4 @@
-package com.ahmedkhaled.smartshopping;
+package com.smartshopping;
 
 import org.junit.Test;
 
