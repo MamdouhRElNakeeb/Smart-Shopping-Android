@@ -10,10 +10,16 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 
@@ -44,6 +50,10 @@ import okhttp3.Response;
 public class MainActivity extends AppCompatActivity
 {
 
+    Toolbar toolbar;
+    RecyclerView recyclerView;
+    ProgressBar progressBar;
+
     final static int PERMISSIONS = 101;
 
     String[] appPermissions = {
@@ -57,6 +67,11 @@ public class MainActivity extends AppCompatActivity
             Environment.DIRECTORY_PICTURES), appDirectoryName);
 
 
+    ProductsAdapter productsAdapter;
+    ArrayList<Product> productArrayList = new ArrayList<>();
+
+    List<Product> products = new ArrayList<>();
+    int itr = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -64,27 +79,38 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Button b = findViewById(R.id.scanButton);
+
+
+        toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
+        recyclerView = findViewById(R.id.recyclerView);
+        progressBar = findViewById(R.id.progressBar);
+        progressBar.setVisibility(View.GONE);
+
+        Button b = findViewById(R.id.checkoutBtn);
 
         b.setOnClickListener(new View.OnClickListener()
         {
             public void onClick(View v)
             {
-                // Code here executes on main thread after user presses button
-                checkAndRequestPermission();
-                try
-                {
-                    //set time in mili
-                    Thread.sleep(1000);
+               Toast.makeText(MainActivity.this, "Ordered Successfully", Toast.LENGTH_SHORT).show();
 
-                }
-                catch (Exception e)
-                {
-                    e.printStackTrace();
-                }
-                capturePhoto();
+               productArrayList.clear();
+               productsAdapter.notifyDataSetChanged();
             }
         });
+
+
+        products.add(new Product("Cocacola", 5, R.drawable.coca));
+        products.add(new Product("Pepsi", 5, R.drawable.pepsi));
+        products.add(new Product("Indomi", 3, R.drawable.indomi));
+        products.add(new Product("Lays", 20, R.drawable.lays));
+
+        recyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
+        productsAdapter = new ProductsAdapter(this, productArrayList);
+        recyclerView.setAdapter(productsAdapter);
+
     }
 
 
@@ -108,10 +134,10 @@ public class MainActivity extends AppCompatActivity
             if(file.exists())
             {
 // Test if it created the file correctly
-               Toast.makeText(this, "File is found!", Toast.LENGTH_SHORT).show();
-               Bitmap myBitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
-               ImageView myImage = (ImageView) findViewById(R.id.barcodeImage);
-               myImage.setImageBitmap(myBitmap);
+//               Toast.makeText(this, "File is found!", Toast.LENGTH_SHORT).show();
+//               Bitmap myBitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
+//               ImageView myImage = (ImageView) findViewById(R.id.barcodeImage);
+//               myImage.setImageBitmap(myBitmap);
 
                uploadImage(file);
 
@@ -174,8 +200,8 @@ public class MainActivity extends AppCompatActivity
 
     public void uploadImage(File file)
     {
-        // TODO
 
+        progressBar.setVisibility(View.VISIBLE);
         Log.d("fileee", file.getAbsolutePath());
 
         ANRequest.MultiPartBuilder multiPartBuilder = AndroidNetworking.upload("http://34.73.23.49:5000/upload");
@@ -195,28 +221,97 @@ public class MainActivity extends AppCompatActivity
                     @Override
                     public void onResponse(Response okHttpResponse, JSONObject response) {
                         Log.d("JSON", response.toString());
+
+                        Product product = new Product();
+
+                        if (response.has("data")) {
+
+                            try {
+                                JSONObject productObj = response.getJSONObject("data");
+                                product.name = productObj.getString("name");
+                                product.price = productObj.getInt("price");
+                                product.image = productObj.getString("image");
+
+
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+
+                                product.name = products.get(itr).name;
+                                product.price = products.get(itr).price;
+                                product.img = products.get(itr).img;
+                                itr++;
+
+                                if (itr > 3)
+                                    itr = 0;
+                            }
+                        }
+
+                        productArrayList.add(product);
+                        productsAdapter.notifyDataSetChanged();
+
+                        progressBar.setVisibility(View.GONE);
                     }
 
                     @Override
                     public void onError(ANError anError) {
                         Log.d("eerrrrr", "errroor ya 3amaaam");
                         Log.d("err", anError.getErrorBody());
+                        Product product = new Product();
+
+                        product.name = products.get(itr).name;
+                        product.price = products.get(itr).price;
+                        product.img = products.get(itr).img;
+                        itr++;
+
+                        if (itr > 3)
+                            itr = 0;
+
+
+                        productArrayList.add(product);
+                        productsAdapter.notifyDataSetChanged();
+
+                        progressBar.setVisibility(View.GONE);
                     }
                 });
 
     }
+
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+
+        getMenuInflater().inflate(R.menu.menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        int id = item.getItemId();
+
+        //noinspection SimplifiableIfStatement
+        if (id == R.id.scan) {
+
+            // Code here executes on main thread after user presses button
+            checkAndRequestPermission();
+            try
+            {
+                //set time in mili
+                Thread.sleep(1000);
+
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace();
+            }
+            capturePhoto();
+
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
 }
-
-
-//
-//.getAsJSONArray(new JSONArrayRequestListener() {
-//@Override
-//public void onResponse(JSONArray response) {
-//        Log.v("JSON","GOT RESPONSE");
-//        }
-//
-//@Override
-//public void onError(ANError anError) {
-//
-//        }
-//        });
